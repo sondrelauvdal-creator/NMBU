@@ -1,0 +1,326 @@
+---
+title: "Mandatory Assignment 01: Data Analysis and Visualization project"
+author: "Ane Robbestad, Sondre Lauvdal"
+output: html_document
+date: "2026-03-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+Loading packages for the assignment
+
+```{r }
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(readxl)
+library(scales)
+```
+
+Part 1.
+Read in the data owid-energy-data.csv and call this dataset energy. Note: if you get parsing issues, you need to resolve them. Show the steps you take and argue for the choices you make. All changes to the data must be explicitly discussed.
+
+```{r}
+energy <- read_csv("owid-energy-data.csv")  #reading file downloaded to the project-folder
+
+energy # gives warning with several parsing issues
+
+problems(energy) #gives tibble with problem in colomn 14 of row 12 and 18 with semicolon";" when expecting "."
+
+energy <- energy |> 
+  mutate(across(14, ~as.numeric(gsub(";", ".", .))))  #had to search in google/AI for advise how to mutate
+  #along column 14 changing ";" to ".", leading to gsub function.
+
+```
+Part 2.
+Read in the data countries.xlsx and call this dataset countries. Print only the first few lines and columns of this dataset.
+
+```{r }
+countries <- read_xlsx("countries.xlsx") #reading file downloaded to the project-folder
+
+countries #prints first few lines of both columns in the dataset 
+```
+Part 3.
+The dataset energy contains many missing values, especially in early years. For the purpose of later continent-level analysis and plotting, identify a reasonable filtering strategy and justify it. Hint: Your strategy should be based on the variables you will later use (e.g., consumption variables, gdp, population)
+
+Strategy is to pick mentioned columns, then keeping numbers after 1965 when EI started registrations
+
+```{r}
+energy_filtered <- energy |>
+  select(year, gdp, country, population, contains('consumption')) |>
+  filter(
+    year >= 1965,
+    #!is.na(gdp), removes years after 2018 when gdp is not registered, causing som distress in later tasks
+    !is.na(population),
+    if_any(contains("consumption"), ~ !is.na(.x)) #keeps only values that are not NA
+  )
+energy_filtered
+```
+
+Part 4
+Utilize the countries dataset to create a bar chart displaying the number of countries per continent. This will require you to count the number of occurrences of each continent in the dataset. Plot these counts in a bar chart where each continent is represented by a different color. Calculate the percentage share of each continent and include the percentage as text labels on the bars.
+
+```{r}
+countries_per_continent <- countries |> #creating new variable where we cpunt in Continet variable from countries file. 
+  count(Continent) |>
+  mutate(share = n / sum(n)) #creating new column in countries_per_continent with share for each country
+
+ggplot(
+  data = countries_per_continent, 
+  mapping = aes(x = Continent, y = n, fill = Continent)) + 
+  geom_text(aes(label = percent(share))) + #percent function converts share to percent
+  geom_bar(stat = 'identity')
+
+```
+
+Part 5.
+Filter the observations in energy to only contain the countries present in countries then add the Continent variable to the energy dataset. From energy select the columns year, continent, country, population, gdp and those with data on consumption. Change the variable year to an integer variable and country and continent to factors. Note: You should not get warnings here, if you do, then you did not do 1 correctly. Print the first few lines and columns of the dataset only.
+
+
+
+Opprinnelige med semi og left
+energy_filtered |>
+  semi_join(countries, by = c("country" = "Country")) |> #matches the sets energy and countries through variable Country with capital letter corrected and keeps only columns the have in common
+  left_join(countries, by = c("country" = "Country")) |> #adds variable Country from countries
+  relocate(Continent,.after = country) |>
+  mutate(year = as.integer(year), 
+         country = as.factor(country), 
+         Continent = as.factor(Continent))
+
+Erstatter med innerjoin, fortsetter å jobbe på energy_filtred versjonen av energy, tror dette er lurt. Innerjoin gir africa som kontinent og ikke land, ser ut til at dette fungerer greit - gir litt annerledes tall..
+```{r}
+energy_filtered <- energy_filtered |>  #inner join hentet fra chat gpt - får ut meningsfull tabell
+  #filter(!is.na(gdp)) |> #viser kun de med registereringer for gdp #forsøker å fjerne denne linjen da jeg trenger tallene i neste oppgave
+  inner_join(countries, by = c("country" = "Country")) |> #beholder felles kolonner i begge filer
+  relocate(Continent, .after = country) |> #legger inn continent etter country filen
+  mutate(
+    year = as.integer(year),
+    country = as.factor(country),
+    Continent = as.factor(Continent))
+
+energy_filtered
+
+```
+
+Part 6.
+Identify the different energy sources consumed in the data. Create a new variable total_consumption, which includes total consumption from all sources. Clearly specify which variables you include as energy sources and justify any exclusions. Print a tibble with 1 row and 2 columns containing the minimum and maximum total consumption. Note: if something happened to the structure/representation of the underlying data when you calculated total_consumption you must explicitly discuss this and the possible implications resulting from it.
+
+
+Strategy is to continue working with the energy_filtered set from previous task, identifying sources, see which should be removed, and make summation. 
+
+```{r}
+energy_sources <- energy_filtered |> #Creating energy_souces from energy_filtered created in previus task.
+  select(contains("consumption")) |> #Only columns containing "consuption" are kept
+  names()
+energy_sources #printing for overview
+```
+Looking at different variables exclusion is made subjectively fossil, low carbon and renewables assumed included in other variable. Primary consumption includes loss in production etc and is not relevant at this point. 
+```{r}
+
+energy_sources <- energy_sources |> #set is corrected using setdiff for removal. Advised from Chat gtp
+  setdiff(c(
+    "fossil_fuel_consumption",
+    "low_carbon_consumption",
+    "primary_energy_consumption",
+    "renewables_consumption"
+  ))
+
+energy_sources
+
+```
+Strategy to count variable by variable throug our energy_filtered set for selected sources in energy_sources using rowSums.
+
+
+In the end we are making a tibble with corrections fro AI in creating function for min and max of total consumption in energy filtered
+```{r}
+energy_filtered <-energy_filtered |> 
+  mutate(total_consumption = rowSums(across(all_of(energy_sources)), na.rm = TRUE)) #na.rm=TRUE used to handle multiple of missing values, count NA as zero so the the entire row is not calculated as zero
+
+
+
+sum_tibble <- tibble(
+  min_total_consumption = min(energy_filtered$total_consumption, na.rm = TRUE), 
+  max_total_consumption = max(energy_filtered$total_consumption, na.rm = TRUE))
+  
+sum_tibble
+```
+
+Part 7.
+Using the energy dataset, create a histogram to visualize the distribution of total_consumption for the year 2020. Before plotting, ensure to filter the dataset for the year 2020. Provide a brief description of the distribution observed in the histogram. Compare the mean and median of total_consumption in 2020. What does this tell you about skewness?
+
+Strategy is continue working on the filtered version of the energy dataset. 
+
+```{r}
+energy_2020 <- energy_filtered |>
+  filter(year == 2020)  |> 
+  ggplot(aes(x = total_consumption)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+  labs(
+    title = "Histogram of Total Consumption (Year 2020)",
+    x = "Total Consumption",
+    y = "Count"
+  )
+energy_2020
+```
+
+Our graph has most registrations at zero. This is probably due to handeling of NAs as most countries are handeles as non-consumers
+
+
+Part 8.
+Create a copy of energy and call it energy_loop. Define a function to calculate the share of energy from each energy source defined above. Using a for-loop where you loop over a vector of column names, transform each of the consumption variables for each energy source into a share of the total. After transforming the variables into shares, verify that the shares sum to 1 (or approximately 1) for at least three randomly selected countries and years. Show your verification.
+
+```{r}
+energy_sources <- c( #creating a vector of energy sources, working on energy and not energy filtered this time, total consumtion is recalcuated
+  "biofuel_consumption",
+  "coal_consumption",
+  "gas_consumption",
+  "hydro_consumption",
+  "nuclear_consumption",
+  "oil_consumption",
+  "other_renewable_consumption",
+  "solar_consumption",
+  "wind_consumption"
+)
+#creating new column in the energy_loop table named total energy, which is a summation og rows in energy_loop: 
+energy_loop$total_energy <- rowSums(     
+  energy_loop[, energy_sources],
+  na.rm = TRUE
+)
+
+# Using AI for defining formula for calculation of fractions through the set
+
+calc_share <- function(x, total) {
+  return(x / total)
+}
+
+#AI once again doin iteration throug energy_loop where column is in energy sources, the using the function created for calculation of shares
+
+for (col in energy_sources) {
+  energy_loop[[col]] <- calc_share(
+    energy_loop[[col]],
+    energy_loop$total_energy
+  )
+}
+
+# Picking three countries as control for year 2020, summation of fractions should equal 1. 
+
+control_countries <- c("Norway", "Germany", "Brazil")
+selected_year <- 2020
+
+# Filter the rows
+verification <- energy_loop[energy_loop$country %in% control_countries &
+                              energy_loop$year == selected_year, ]
+
+# Calculate row sums for the energy shares (should be ≈ 1)
+verification$share_sum <- rowSums(verification[, energy_sources], na.rm = TRUE)
+
+# Show the verification table
+verification[, c("country", "year", "share_sum")] #printing verification vecto for country, year and som of shares
+
+
+
+
+```
+
+Part 9.
+Create a new data set that is a subset of energy. This new dataset should contain the share of consumption from renewables and GDP per capita by continent and year. Print out the first few lines and columns of the new dataset. Hint: Create a new function to reduce code duplication. Furthermore, think through the order of operations, they matter for the end result. Explain why calculating GDP per capita before grouping by continent would lead to a different result than calculating it after grouping.
+
+Strategy: Using same filtering as written in task above..... 
+
+Problem... not reduces code duplication. Have to explain order of operations
+
+```{r}
+energy_renewables <- energy_filtered # Creating energy_renewables, using the already filtered energy set
+
+
+energy_renewables |>  #makes a summation over continents for the new energy_renewable set
+  group_by(Continent)
+
+energy_renewables <- energy_renewables |> 
+  mutate(gdp_per_capita = gdp / population, .after = gdp) # creates new column to the right of grp with fraction og gdp/capita
+
+
+energy_sources_renewable <- c( #creates a vector of sources considered renewable, all sources showed in previus task
+  "biofuel_consumption",
+  "hydro_consumption",
+  "other_renewable_consumption",
+  "solar_consumption",
+  "wind_consumption"
+)
+
+energy_renewables$total_energy_consumption_allsource <- rowSums(     # basically same as in earlier task where total_energy_consumption_allsource is added to energy_renewables using rowSums
+  energy_renewables[, energy_sources],
+  na.rm = TRUE, 
+)
+
+energy_renewables$total_energy_consumption_renewable <- rowSums(     #same as above, now with total_energy_consumption_renewable added to energy_renewables
+  energy_renewables[, energy_sources_renewable],
+  na.rm = TRUE
+)
+
+energy_renewables <- energy_renewables |>  #adding renewable fraction as variable to energy_renewables set
+  mutate(renewable_fraction = total_energy_consumption_renewable / 
+           total_energy_consumption_allsource) |>
+           filter(!is.na(renewable_fraction))
+
+energy_renewables |>  select(renewable_fraction) #controlling that columns is not empty;-)
+
+energy_renewables <- energy_renewables |>
+  relocate(renewable_fraction, .after = gdp_per_capita) #moving renewable_fraction to the right of gdp_per_capita for overview
+
+
+energy_renewables # printing result. glimpse() would reduce  what´s shown
+```
+
+Part 10.
+Using the data you created above in question 8, create a lineplot with the following properties/characteristics
+Only uses data after 1960
+Shows year on the x-axis, share of renewables consumption on the y-axis and has separate lines for each continent. Make sure that the legend is ordered based on the order of the lines in 2021.
+Customize the labels on the axis and legend
+Show a tic for every 5 years on the x-axis
+Change the theme of the plot.
+Highlight the continent with the largest renewable share in 2021 by increasing line thickness or annotating the final point.
+
+Promle, how to highlight the one with higher consumption 2021
+
+```{r}
+
+energy_renewables_continent <- energy_renewables |> #creating a mean of renewables, probably not decriptive per se but shows trend over time
+  group_by(Continent, year) |>  
+  summarise(mean_renewable_fraction = mean(renewable_fraction, na.rm = TRUE))
+
+energy_renewables_continent #as a control
+
+#uses chat gtp for support on how to create top consumption
+order_2021 <- energy_renewables_continent |> 
+  filter(year == 2021) |> 
+  arrange(mean_renewable_fraction) |> 
+  pull(Continent)
+
+top_continent <- energy_renewables_continent |> #picking continent with higher use
+  filter(year == 2021) |> 
+  slice_max(mean_renewable_fraction, n = 1) |> 
+  pull(Continent)
+
+energy_renewables_continent <- energy_renewables_continent |> #adding variable to erergy_renewables_continent
+  mutate(Continent = factor(Continent, levels = order_2021))
+
+
+ggplot(energy_renewables_continent |> filter(year>=1960), aes(x = year, y = mean_renewable_fraction, color = Continent)) +
+  geom_line() +
+  scale_x_continuous(breaks = seq(1960, 2021, by = 5)) + #adding sequence to 2021, 
+  labs(title = "Mean Renewable Energy Fraction by Continent",
+       y = "Mean Renewable Fraction") +
+  theme_classic() # changing theme, classic, modern, minimal etc
+
+# have not been able to make to continent highlighted yet
+```
