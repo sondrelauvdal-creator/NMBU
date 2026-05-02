@@ -1,6 +1,7 @@
 ---
 title: "Arbeidskrav 2"
 output: html_document
+author: Sondre Lauvdal
 date: "2026-04-27"
 ---
 
@@ -10,28 +11,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
 Assignment 2
 
 Task 1:
 Load the datasets and explore the first few rows to understand the structure and types of data available. Identify and handle the missing values in both datasets. Next, merge the cleaned countries and energy data on the country column and show the first few rows of the merged dataset (Hint: Module 10, na.omit(), merge(), make sure that the column country is present in both datasets)
 
 ```{r}
-library(tidyverse) # same packages as in first assignment loaded
+
+# same packages as in first assignment are all loaded. Data loaded in same manner as well, then handeled with recomended functions. 
+
+library(tidyverse) 
 library(readr)
 library(dplyr)
 library(readxl)
@@ -44,21 +34,23 @@ energy <- read_csv(
 )
 
 energy |>
-  mutate(across(14, ~as.numeric(gsub(';','.',.)))) # to encounter problems known from assignment 1
+  mutate(across(14, ~as.numeric(gsub(';','.',.)))) # to encounter problems known from loading data in assignment 1
 
-head(energy)
+head(energy) # head displays first part
 
 countries <- read_xlsx('countries.xlsx')
+
 head(countries)
 
-countries <- countries |>  rename(country = Country, Continent = `Continent`) # changing names to equal between sets
+countries <- countries |>  rename(country = Country, Continent = `Continent`) # changing names so it´s equal in sets
 
-energy_cleaned   <- na.omit(energy) #na.omit "removes" missing data - it seems rather radical in remowing rows with missing values
+energy_cleaned   <- na.omit(energy) #na.omit "removes" missing data - it seems slightly radical in remowing rows with missing values
+
 countries_cleaned <- na.omit(countries)
 
 merged_data <- merge(energy_cleaned, countries_cleaned, by = "country") #datasets are merged with  country as "common factor"
 
-head(merged_data)
+head(merged_data) #shows the first few rows
 
 
 ```
@@ -66,17 +58,19 @@ Task 2
 Calculate the average gas consumption (gas_consumption) for each continent using the merged dataset from the previous question, and then visualize this data in a plot. Discuss the insights you can draw from the visualization regarding gas consumption patterns across continents.
 
 ```{r}
-average_gas_consumption <- merged_data |> #using merged data, sorting due to continent from countries file
-  group_by(Continent) |> 
-  summarise(average_gas_consumption = mean(gas_consumption, na.rm = TRUE)) #functions from dplyr, summarises reduces values per continent to one/continent
 
+#using merged data average_gas_consumption in created by continens. 
+average_gas_consumption <- merged_data |> 
+  group_by(Continent) |> 
+  summarise(average_gas_consumption = mean(gas_consumption, na.rm = TRUE)) # average is created with summarise from dplyr reducing values per continent to one/continent
 
 
 head(average_gas_consumption) #overwiew
 
-ggplot(average_gas_consumption, aes(x = Continent, y = average_gas_consumption)) + #data and x- and y-axis
-  geom_col(fill = "blue") + #creating bar chart
-  labs(                     #labels
+#Creating a bar chart named "Average Gas Consumption by Continent" for visualization of average_gas_consumption
+ggplot(average_gas_consumption, aes(x = Continent, y = average_gas_consumption)) + 
+  geom_col(fill = "blue") + 
+  labs(                     
     title = "Average Gas Consumption by Continent",
     x = "Continent",
     y = "Average Gas Consumption"
@@ -85,16 +79,16 @@ ggplot(average_gas_consumption, aes(x = Continent, y = average_gas_consumption))
 
 
 ```
-Regarding graph in task 2 this doesn´t look promising. Using the merged data Africa, Asia and Oceania are not present...Seems the gas_consumption is not registered as a value per county for these continents, but at continent as a whole. 
+Discussion task 2
+Regarding graph in task 2 this doesn´t look promising... Using the merged data Africa, Asia and Oceania are not present. Seems the gas_consumption is not registered as a value per county for these continents, but at continent as a whole. 
 As the graph stands - North america has a higher consumtion per country. Australia f.ex is not included in the countries file
-
 
 Task 3: 
 Generate descriptive statistics for gdp and total_energy_consumption for the year 2013. Then, create a scatter plot to analyze the relationship between GDP and total energy consumption in 2013. Use the total_energy_consumption variable calculated in Assignment 1 using the code below:
 
 ```{r}
 
-#Using given code from assignment 1
+#Using given code from assignment 1 in the assignment text:
 
 consumption_vars <- names(select(merged_data, ends_with("consumption")))
 consumption_vars <- consumption_vars[!(consumption_vars %in%
@@ -110,35 +104,40 @@ merged_data <- merged_data %>%
 
 merged_data
 
-# Retrieving 2013 data
+# Retrieving 2013 data using filter function
 data_2013 <- merged_data |>  filter(year == 2013)
 
-# Descriptive statistics
-summary(data_2013[, c("gdp", "total_energy_consumption")]) #Summary generates overview of statistics
+# Descriptive statistics. Summary generates overview of statistics
+summary(data_2013[, c("gdp", "total_energy_consumption")]) 
 
-#Creating scatter plot
+#Creating scatter plot on the new data_2013 with GDP vs total_energy_consumption
 ggplot(data_2013, aes(x = gdp, y = total_energy_consumption)) +
   geom_point(alpha = 0.8, color = "green") +
   labs(title = "GDP vs Total Energy Consumption (2013)",
        x = "GDP", y = "Total Energy Consumption") +
   theme_classic()
 
-#Clear trend that consumption increases with wealth.
 
 ```
+Discussion task 3
+Clear trend that consumption increases with wealth.
+
 Task 4:
 Filter countries with gdp higher than the median, compute the average greenhouse_gas_emissions for these countries, and create a bar plot (Hint: Module 11, median, subset()).
 
 ```{r}
 
-high_gdp <- subset(merged_data, gdp > median(gdp, na.rm = TRUE)) # subset function keeps rows with higher value
+# Using subset function in order to keep rows with higher than median gdp - value from merged_data
+high_gdp <- subset(merged_data, gdp > median(gdp, na.rm = TRUE)) 
 
+#calculating average_greenhouse_gas_emissions by country in the high_gdp data made in previous line
 average_greenhouse_gas_emissions <- high_gdp |> 
-  group_by(country) |> #reasonable group for summary
+  group_by(country) |> 
   summarise(average_greenhouse_gas_emissions = mean(greenhouse_gas_emissions, na.rm = TRUE)) |> # as previous task summarise is used to get one value
   arrange(desc(average_greenhouse_gas_emissions)) # this one is not necessary - gives better visualisation / exploration
 
-ggplot(average_greenhouse_gas_emissions, aes(x = country, average_greenhouse_gas_emissions, y = average_greenhouse_gas_emissions)) +
+#creating a bar plot illustrating  average_greenhouse_gas_emissions by country
+ggplot(average_greenhouse_gas_emissions, aes(x = country, y = average_greenhouse_gas_emissions)) +
   geom_bar(stat = "identity", fill = "blue") +
   labs(title = "Avg Greenhouse Gas Emissions, above average GDP countries",
        x = "Country", y = "Avg Greenshouse Gas Emissions") +
@@ -161,7 +160,7 @@ ggplot(merged_data, aes(x = gas_consumption)) +
   geom_histogram(bins = 10, fill = "darkorange", color = "green") +
   labs(title = "Gas Consumption", x = "Gas Consumption (TWh)") + theme_classic()
 
-# Scatterplot with relationship betweengdp and gas_consumption (colored by country)
+# Scatterplot with relationship between gdp and gas_consumption (colored by country)
 ggplot(merged_data, aes(x = gdp, y = gas_consumption, color = country)) +
   geom_point(alpha = 0.8) +
   labs(title = "Relationship between gdp and gas_consumption", x = "GDP", y = "Gas Consumption") +
@@ -170,7 +169,7 @@ ggplot(merged_data, aes(x = gdp, y = gas_consumption, color = country)) +
 ```
 
 Discussion task 5. 
-For GDP there´s no obvious distribution, though slightly more in centre, ande severalt at 0/NA. For gas consumption it´s more bifocal. The scatterplot shows a trend with increasing consumption with increasing gdp, Brazil and France look like exeptions. 
+For GDP there´s no obvious distribution, though slightly more in centre, and several at 0/NA. For gas consumption it´s more bifocal. The scatterplot shows a trend with increasing consumption with increasing gdp, Brazil and France look like exeptions. 
 
 Task 6
 Fit a linear regression model predicting total_energy_consumption from gdp for countries and summarize the model. Next, plot the residuals of the linear regression model and show the r-squared value to assess its fit.
@@ -178,21 +177,24 @@ Fit a linear regression model predicting total_energy_consumption from gdp for c
 
 ```{r}
 
-#From chapter 23 in the textbook R has a lm function for generating linear models. Looking at scatterplot for 2013 in tas 3 relationship should be linear, keeping all years in this task. 
+#From chapter 23 in the textbook R has a lm function for generating linear models, also shown in lecture on models - using this one here to create linear_model from merged data predicting total_energy_consumption from gdp for countries. Looking at scatterplot for 2013 in the  relationship should be linear, keeping all years in this task. 
 
 linear_model <- lm(total_energy_consumption ~ gdp, data = merged_data) #integrated lm model
-summary(linear_model)
 
-# Residual plot, for the rest of the task I had to communicate with Chat gtp.
-plot(fitted(linear_model), residuals(linear_model), #fitted and residuals are functions in r. 
+summary(linear_model) #function for summary
+
+# Residual plot, for the rest of the task I had to communicate with Chat gtp to make the code, functions seem standard. fitted extract estimated response on values in original dataset. residuals show difference between estimate and original value.  
+plot(fitted(linear_model), residuals(linear_model),  
      xlab = "Fitted Values", ylab = "Residuals",
      main = "Residuals of linear regression model")
-abline(h = 0, col = "red") #straight red line/reference line
+abline(h = 0, col = "red") #straight red line/reference line at zero
 
-summary(linear_model)$r.squared #built in function extracts value for whole model as one number, high value indicate good model
-
+summary(linear_model)[["r.squared"]] #built in function extracts value for whole model as one number, high value indicate good model
 
 ```
+
+continue go trough here!!!
+
 Task 7
 Create a figure with two subplots. In the first subplot display a time series of greenhouse_gas_emissions from 2000 to 2020 for Mexico, Germany, and Spain. In the second subplot display a corresponding time series of fossil_fuel_consumption for the same countries and period. Use facet_wrap() to organize the subplots by country. Analyze the plots to compare how trends in fossil fuel consumption relate to trends in greenhouse gas emissions.
 
