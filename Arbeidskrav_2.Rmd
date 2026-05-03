@@ -193,28 +193,26 @@ summary(linear_model)[["r.squared"]] #built in function extracts value for whole
 
 ```
 
-continue go trough here!!!
-
 Task 7
 Create a figure with two subplots. In the first subplot display a time series of greenhouse_gas_emissions from 2000 to 2020 for Mexico, Germany, and Spain. In the second subplot display a corresponding time series of fossil_fuel_consumption for the same countries and period. Use facet_wrap() to organize the subplots by country. Analyze the plots to compare how trends in fossil fuel consumption relate to trends in greenhouse gas emissions.
 
 ```{r}
 
-#generating a vector with relevant countries making it easier to work with them down the line, Chat gtp for hints on this one
+#generating a vector with relevant countries making it easier to work with them down the line, Chat gtp for hints on this approach
 subset_countries <- c("Mexico", "Germany", "Spain") 
 
-#Retrieving/filtering data for three relevant countries over relevant years, naming it time series
+#Retrieving/filtering data from merged_data for three relevant countries over relevant years, naming it timeseries_data
 timeseries_data <- merged_data |> 
-  filter(country %in% subset_countries, year >= 2000, year <= 2020) #%in% is a logical operator to check for inclusion, found through google,
+  filter(country %in% subset_countries, year >= 2000, year <= 2020) #%in% is a logical operator to check for inclusion within criteria
 
 
-# greenhouse_gas_emissions
+# Creating a line plot for greenhouse_gas_emissions from the created time series data where facet wrap splits in side by side subplots by variable country in this case
 ggplot(timeseries_data, aes(x = year, y = greenhouse_gas_emissions, color = country)) +
-  geom_line() + # line plot
-  facet_wrap(~country) + # facet wrap splits in side by side subplots by variable country in this case
+  geom_line() + 
+  facet_wrap(~country) + 
   labs(title = "Greenhouse Gas Emissions 2000–2020") + theme_classic()
 
-# fossil_fuel_consumption 
+# Line plot for fossil_fuel_consumption made in same manner as described above for greenhouse gas emission
 ggplot(timeseries_data, aes(x = year, y = fossil_fuel_consumption, color = country)) +
   geom_line() +
   facet_wrap(~country) +
@@ -225,12 +223,14 @@ ggplot(timeseries_data, aes(x = year, y = fossil_fuel_consumption, color = count
 Discussion task 7
 Germany is rather flat in greenhouse gas emission, but actually falls slightly in fossil consumtion - chemical or agriculture? Germany has a higher consumption than the two other countries in any case. For Mexico and Spain the curves follow for greenhouse and fossile consumption. 
 
+
 Task 8
 Using the merged dataset, calculate the proportion of total_energy_consumption that comes from gas_production for each country. After calculating these proportions, sort the results in descending order. Then, identify and report which country has the highest proportion of its energy consumption coming from gas, and which has the lowest
 
 ```{r}
 
-#Creating new data gas_proportion. Then in merged data a new column with our new variable should be added through mutate. Then as in several previous tasks it´s grouped by country, then summarise is used on average to generate single value, arrange desc is asked for in the task. 
+#Creating gas_proportion for datas retrieved from the merged data. Then from our merged data a new column with our new variable is added through mutate, gas_production divided by total_energy_consumption for fraction of gas. As in several previous tasks it´s grouped by country, then summarise is used on average to generate single value, arrange desc is asked for in the task. 
+
 gas_proportion <- merged_data |> 
   mutate(gas_proportion = gas_production / total_energy_consumption) |> 
   group_by(country) |> 
@@ -239,8 +239,8 @@ gas_proportion <- merged_data |>
 
 head(gas_proportion) #Genereates 6x2 tibble
 
-head(gas_proportion, 1)   # Highest, picking name from 1st column in tibble equals Argentina
-tail(gas_proportion, 1)   # Lowest equals Spain
+head(gas_proportion, 1)   # Highest proportion of consumption coming from gas, picking name from 1st column in tibble equals Argentina
+tail(gas_proportion, 1)   # Lowest proportion of consumption equals Spain
 ```
 
 Task 9.
@@ -249,36 +249,39 @@ How do electricity_generation, time, and Continent interact? Aggregate and visua
 
 ```{r}
 
-#Still working on merged data. Grouping by time (year) and Continent before making summation where summarise is used to reduces to one value (as in average) for total electricity generation
+#Still working on merged data. Grouping by time (year) and Continent before making summation where summarise is used to reduces to one value  (as in average) for total electricity generation - stored as electricity_continent
 electricity_continent <- merged_data |> 
   group_by(Continent, year) |> 
   summarise(total_electricity = sum(electricity_generation, na.rm = TRUE))
 
+# had to use chat gpt here to pick continents as distinc values, distinct(), and then pull to create a vector needed for iterations - as I couldn´t make my loop run later in this task. 
 continents <- electricity_continent |> 
   distinct(Continent) |> 
-  pull(Continent) # had to use chat gpt here to pick continents as distinc values, distinct(), and then pull to create a vector for iterations
+  pull(Continent) 
 
 #Creating a "for" iteration, as shown in module 10, in order to go through all continents ( cont ) in continents, where continents are retrieved as unique/distinct values in the line above.
 
 for (cont in continents) {
   
-  #createing data for continents where electricity continent is the summation above. It´s then filtered by Continent equel (== in iterations) to the running variable cont for iteration. 
+  #creating data for continents where electricity_continent is the summation above. It´s then filtered by Continent equal (== in iterations) to cont  through iterations. 
   cont_data <- electricity_continent |> 
     filter(Continent == cont)
   
+  #Creating a graph per iteration(continent) in my loop illustrating electricity production through time. 
   print(
     ggplot(cont_data, aes(x = year, y = total_electricity)) +
       geom_line(color = "blue") +
-      labs(title = paste("Electricity Generation —", cont),  #again I had to use chat gpt in order to figure how to plot different plots with correct names. 
+      labs(title = paste("Electricity Generation —", cont),  #plenty of google use in order to figure how to plot different plots with correct names when working on iterations. 
            x = "year",
            y = "total electricity generation") +
       theme_classic()
   )
 }
 
-# using iterations as shown in module 10 generate different graph, and I can¨t figure out how to join them through subplots with facet().
-#As far as I can understand facet anf for-loops will not work together, at least not with facet inside the loop where continets are already splitted. 
-#The facet function may replace the iterations, and following is suggested as a visualization - results are comparable through the approaches. 
+# using iterations as shown in module 10 generate different graph per continent, and I can¨t figure out how to join them through subplots with facet().as asked for
+#As far as I can understand facet and for-loops will not work together, at least not with facet inside the loop where continets are already splitted. 
+
+#The facet function can replace the iterations as shown above, and following will show generated electricity more easily than running iterations as shown in module 10 - results are the same for the approaches, but this one gives subplots for electricity generation per continent over time in differeent colors. 
 
 ggplot(electricity_continent,
        aes(x = year, y = total_electricity, color = Continent)) +
@@ -287,12 +290,13 @@ ggplot(electricity_continent,
   theme_classic()
 
 ```
+
 Task 10
 Conduct a regression analysis to explore the relationship between the fossil_fuel_consumption of countries and their greenhouse_gas_emissions. Discuss the results of the regression, focusing on the coefficient of the fossil_fuel_consumption variable. Interpret the significance level and the fit of the model (model_1) to assess how fossil_fuel_consumption values predict greenhouse_gas_emissions (Hint: Module 12).
 
 ```{r}
 
-#Using lm function from earlier task and textbook for a linear model, named model_1. Datas extracted through summary
+#Using lm function from lecture on models for a linear model, named model_1, estimatin relation between greenhouse gas emission and fossil fuel consumtpion found as variables in our merged_data. Datas shown through summary
 
 model_1 <- lm(greenhouse_gas_emissions ~ fossil_fuel_consumption, data = merged_data)
 
@@ -300,17 +304,17 @@ summary(model_1)
 
 ```
 Discussion 10:
-
-Lines intercept at -27,4, not to meaningful. Gas emission increase by 0.089 per unit in fossil_fuel_consumption increase. Std.error for our line/estimate is really small (0.0037), and indicate a good fit. A good fit is also reflected in a low t-value for our estimate- indication that there´s a strong relationship between gas emission and fuel consumtion, very low risk that we hit this by chance here.  
+Lines intercept at -27,4, not to meaningful. Gas emission increase by 0.089 per unit in fossil_fuel_consumption increase. Std.error for our line/estimate is really small (0.0037), and indicate a good fit. A good fit is also reflected in a low t-value for our estimate- indication that there´s a strong relationship between gas emission and fuel consumtion - very low risk that we hit this by chance here.  
 
 R squared is a good measure of model fit, can be read as percentage/fraction in variation/increase/decrease of one variable explained by the other. R squared here being 0,8545 means that 86% of greenhouse gas emission is explained by fuel consumtion, remaining 14 percent not explained by our model. 
+
 
 Task 11
 Create another model model_2 to see how coal_production impacts greenhouse_gas_emissions. Does the coal production provides a better explanation for CO2 emissions compared to the model_1 with only fossil-fuel consumption?
 
 ```{r}
-#Regression in same manner as previous task. 
 
+#Regression in same manner as previous task, this time for coal_production vs greenhouse_gas_emission in our merged data. 
 model_2 <- lm(greenhouse_gas_emissions ~ coal_production, data = merged_data)
 
 summary(model_2)
@@ -324,7 +328,8 @@ Task 12
 Calculate and visualize the residuals for both models (model_1 and model_2). Additionally, assess the fit of each model by comparing their R-squared values. Which model better fits the data based on residual patterns and R-squared values?
 
 ```{r}
-# Calculating residuals through residuals().
+
+# Calculating residuals through residuals() of our model. residual_1 for model_1 and residual_2 for model_2.
 
 residual_1 <- residuals(model_1)
 
@@ -334,7 +339,7 @@ residual_2 <- residuals(model_2)
 
 summary(residual_2)
 
-# Support from chat gpt in understanding this one. Residuals are returned as a vector, and must be converted to datafrane. Next values are fitted, compared to "x" as a common reference point i graphs, creating one dataframe/residual. Then setting up residuals as scatterplot in a new graph 
+# Support from chat gpt in making progress on this one. Residuals are returned as a vector, and must be converted to dataframe for use in a graph. Next values must be fitted fitted, compared to "x" as a common reference point i graphs, creating one dataframe/residual.  Residuals illustrated in a scatterplot for each of the dataframes made for residuals on the models mentioned in the text above. 
 
 residual_df1 <- data.frame(
   fitted = fitted.values(model_1),
@@ -361,11 +366,13 @@ ggplot() +
 
 ```
 Discussion 12. 
-R squared was discussed in task 11, and same applies here. From the scatterplot there´s a larger spread away from zero in model_2 indication a poorer fit compared to model_1
+R squared was discussed in task 11, and same answear applies here with model_1 showing a better fit. From the scatterplot there´s a larger spread away from zero in model_2 indication a poorer fit compared to model_1 - larger residuals in our approximation. 
 
 Task 13
 Outline, with words, next steps you would take to continue analyzing the greenhouse_gas_emissions using the available datasets.
 
+
+I find following relations of interest.
 - Correct for number of inhabitants to asses high-consumers?
 - Check for effect of eg renewables_consumption og greenhouse_gas_emission, same for nuclear?
 - Production/consumption of energy for different countries?
